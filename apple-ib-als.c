@@ -460,7 +460,8 @@ static int appleals_config_iio(struct appleals_device *als_dev)
 	struct appleals_device **priv;
 	int rc;
 
-	iio_dev = iio_device_alloc(sizeof(als_dev));
+       iio_dev = iio_device_alloc(&als_dev->hid_dev->dev,
+                                  sizeof(als_dev));
 	if (!iio_dev)
 		return -ENOMEM;
 
@@ -482,7 +483,8 @@ static int appleals_config_iio(struct appleals_device *als_dev)
 		goto free_iio_dev;
 	}
 
-	iio_trig = iio_trigger_alloc("%s-dev%d", iio_dev->name, iio_dev->id);
+       iio_trig = iio_trigger_alloc(&als_dev->hid_dev->dev,
+                                   "%s-dev0", iio_dev->name);
 	if (!iio_trig) {
 		rc = -ENOMEM;
 		goto clean_trig_buf;
