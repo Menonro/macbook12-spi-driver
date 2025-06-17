@@ -946,14 +946,19 @@ static int appletb_fill_report_info(struct appletb_device *tb_dev,
 	report_info->usb_epnum = 0;
 
 	report_info->report_id = field->report->id;
-	switch (field->report->type) {
-	case HID_INPUT_REPORT:
-		report_info->report_type = 0x01; break;
-	case HID_OUTPUT_REPORT:
-		report_info->report_type = 0x02; break;
-	case HID_FEATURE_REPORT:
-		report_info->report_type = 0x03; break;
-	}
+       switch (field->report->type) {
+       case HID_INPUT_REPORT:
+               report_info->report_type = 0x01;
+               break;
+       case HID_OUTPUT_REPORT:
+               report_info->report_type = 0x02;
+               break;
+       case HID_FEATURE_REPORT:
+               report_info->report_type = 0x03;
+               break;
+       default:
+               break;
+       }
 
 	return 1;
 }
