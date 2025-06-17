@@ -843,13 +843,11 @@ static int appleib_probe(struct acpi_device *acpi)
 	return 0;
 }
 
-static int appleib_remove(struct acpi_device *acpi)
+static void appleib_remove(struct acpi_device *acpi)
 {
-	struct appleib_device *ib_dev = acpi_driver_data(acpi);
+        struct appleib_device *ib_dev = acpi_driver_data(acpi);
 
-	hid_unregister_driver(&ib_dev->ib_driver);
-
-	return 0;
+        hid_unregister_driver(&ib_dev->ib_driver);
 }
 
 static int appleib_suspend(struct device *dev)
@@ -898,7 +896,6 @@ MODULE_DEVICE_TABLE(acpi, appleib_acpi_match);
 static struct acpi_driver appleib_driver = {
 	.name		= "apple-ibridge",
 	.class		= "topcase", /* ? */
-	.owner		= THIS_MODULE,
 	.ids		= appleib_acpi_match,
 	.ops		= {
 		.add		= appleib_probe,

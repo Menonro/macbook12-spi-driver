@@ -587,7 +587,8 @@ static void applespi_setup_read_txfrs(struct applespi_data *applespi)
 	memset(dl_t, 0, sizeof(*dl_t));
 	memset(rd_t, 0, sizeof(*rd_t));
 
-	dl_t->delay_usecs = applespi->spi_settings.spi_cs_delay;
+        dl_t->delay.value = applespi->spi_settings.spi_cs_delay;
+        dl_t->delay.unit = SPI_DELAY_UNIT_USECS;
 
 	rd_t->rx_buf = applespi->rx_buffer;
 	rd_t->len = APPLESPI_PACKET_SIZE;
@@ -616,14 +617,17 @@ static void applespi_setup_write_txfrs(struct applespi_data *applespi)
 	 * end up with an extra unnecessary (but harmless) cs assertion and
 	 * deassertion.
 	 */
-	wt_t->delay_usecs = SPI_RW_CHG_DELAY_US;
+        wt_t->delay.value = SPI_RW_CHG_DELAY_US;
+        wt_t->delay.unit = SPI_DELAY_UNIT_USECS;
 	wt_t->cs_change = 1;
 
-	dl_t->delay_usecs = applespi->spi_settings.spi_cs_delay;
+        dl_t->delay.value = applespi->spi_settings.spi_cs_delay;
+        dl_t->delay.unit = SPI_DELAY_UNIT_USECS;
 
-	wr_t->tx_buf = applespi->tx_buffer;
-	wr_t->len = APPLESPI_PACKET_SIZE;
-	wr_t->delay_usecs = SPI_RW_CHG_DELAY_US;
+        wr_t->tx_buf = applespi->tx_buffer;
+        wr_t->len = APPLESPI_PACKET_SIZE;
+        wr_t->delay.value = SPI_RW_CHG_DELAY_US;
+        wr_t->delay.unit = SPI_DELAY_UNIT_USECS;
 
 	st_t->rx_buf = applespi->tx_status;
 	st_t->len = APPLESPI_STATUS_SIZE;
@@ -1205,7 +1209,6 @@ static ssize_t applespi_tp_dim_read(struct file *file, char __user *buf,
 }
 
 static const struct file_operations applespi_tp_dim_fops = {
-	.owner = THIS_MODULE,
 	.open = applespi_tp_dim_open,
 	.read = applespi_tp_dim_read,
 	.llseek = no_llseek,
@@ -1786,29 +1789,21 @@ static u32 applespi_notify(acpi_handle gpe_device, u32 gpe, void *context)
 
 static int applespi_get_saved_bl_level(struct applespi_data *applespi)
 {
-	struct efivar_entry *efivar_entry;
-	u16 efi_data = 0;
-	unsigned long efi_data_len;
-	int sts;
+        efi_guid_t efi_guid = EFI_BL_LEVEL_GUID;
+        efi_status_t status;
+        u32 attr;
+        u16 efi_data = 0;
+        unsigned long efi_data_len = sizeof(efi_data);
 
-	efivar_entry = kmalloc(sizeof(*efivar_entry), GFP_KERNEL);
-	if (!efivar_entry)
-		return -ENOMEM;
+        status = efivar_get_variable((efi_char16_t *)EFI_BL_LEVEL_NAME,
+                                     &efi_guid, &attr, &efi_data_len,
+                                     &efi_data);
+        if (status && status != EFI_NOT_FOUND)
+                dev_warn(&applespi->spi->dev,
+                         "Error getting backlight level from EFI vars: %d\n",
+                         efi_status_to_err(status));
 
-	memcpy(efivar_entry->var.VariableName, EFI_BL_LEVEL_NAME,
-	       sizeof(EFI_BL_LEVEL_NAME));
-	efivar_entry->var.VendorGuid = EFI_BL_LEVEL_GUID;
-	efi_data_len = sizeof(efi_data);
-
-	sts = efivar_entry_get(efivar_entry, NULL, &efi_data_len, &efi_data);
-	if (sts && sts != -ENOENT)
-		dev_warn(&applespi->spi->dev,
-			 "Error getting backlight level from EFI vars: %d\n",
-			 sts);
-
-	kfree(efivar_entry);
-
-	return sts ? sts : efi_data;
+        return status ? efi_status_to_err(status) : efi_data;
 }
 
 static void applespi_save_bl_level(struct applespi_data *applespi,
@@ -1821,17 +1816,18 @@ static void applespi_save_bl_level(struct applespi_data *applespi,
 	int sts;
 
 	/* Save keyboard backlight level */
-	efi_guid = EFI_BL_LEVEL_GUID;
-	efi_data = (u16)level;
-	efi_data_len = sizeof(efi_data);
-	efi_attr = EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS |
-		   EFI_VARIABLE_RUNTIME_ACCESS;
+        efi_guid = EFI_BL_LEVEL_GUID;
+        efi_data = (u16)level;
+        efi_data_len = sizeof(efi_data);
+        efi_attr = EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS |
+                   EFI_VARIABLE_RUNTIME_ACCESS;
 
-	sts = efivar_entry_set_safe((efi_char16_t *)EFI_BL_LEVEL_NAME, efi_guid,
-				    efi_attr, true, efi_data_len, &efi_data);
-	if (sts)
-		dev_warn(&applespi->spi->dev,
-			 "Error saving backlight level to EFI vars: %d\n", sts);
+        sts = efivar_set_variable((efi_char16_t *)EFI_BL_LEVEL_NAME, &efi_guid,
+                                  efi_attr, efi_data_len, &efi_data);
+        if (sts)
+                dev_warn(&applespi->spi->dev,
+                         "Error saving backlight level to EFI vars: %d\n",
+                         efi_status_to_err(sts));
 }
 
 static void applespi_enable_early_event_tracing(struct device *dev)
@@ -2109,9 +2105,9 @@ static void applespi_drain_reads(struct applespi_data *applespi)
 	spin_unlock_irqrestore(&applespi->cmd_msg_lock, flags);
 }
 
-static int applespi_remove(struct spi_device *spi)
+static void applespi_remove(struct spi_device *spi)
 {
-	struct applespi_data *applespi = spi_get_drvdata(spi);
+        struct applespi_data *applespi = spi_get_drvdata(spi);
 
 	applespi_drain_writes(applespi);
 
@@ -2121,9 +2117,7 @@ static int applespi_remove(struct spi_device *spi)
 
 	applespi_drain_reads(applespi);
 
-	debugfs_remove_recursive(applespi->debugfs_root);
-
-	return 0;
+        debugfs_remove_recursive(applespi->debugfs_root);
 }
 
 static void applespi_shutdown(struct spi_device *spi)
@@ -2588,7 +2582,7 @@ unregister_driver:
 	return ret;
 }
 
-static int appleacpi_remove(struct acpi_device *adev)
+static void appleacpi_remove(struct acpi_device *adev)
 {
 	struct appleacpi_spi_registration_info *reg_info;
 
@@ -2603,17 +2597,14 @@ static int appleacpi_remove(struct acpi_device *adev)
 		kfree(reg_info);
 	}
 
-	spi_unregister_driver(&applespi_driver);
+        spi_unregister_driver(&applespi_driver);
 
-	pr_info("acpi-device remove done: %s\n", acpi_device_hid(adev));
-
-	return 0;
+        pr_info("acpi-device remove done: %s\n", acpi_device_hid(adev));
 }
 
 static struct acpi_driver appleacpi_driver = {
 	.name		= "appleacpi",
 	.class		= "topcase", /* ? */
-	.owner		= THIS_MODULE,
 	.ids		= applespi_acpi_match,
 	.ops		= {
 		.add		= appleacpi_probe,
@@ -2630,6 +2621,7 @@ module_spi_driver(applespi_driver)
 #endif
 
 MODULE_LICENSE("GPL v2");
+MODULE_IMPORT_NS(EFIVAR);
 MODULE_DESCRIPTION("MacBook(Pro) SPI Keyboard/Touchpad driver");
 MODULE_AUTHOR("Federico Lorenzi");
 MODULE_AUTHOR("Ronald Tschalär");
