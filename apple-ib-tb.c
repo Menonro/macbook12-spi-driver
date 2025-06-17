@@ -407,12 +407,10 @@ static void appletb_set_tb_worker(struct work_struct *work)
 	/* a new command arrived while we were busy - handle it */
 	if (need_reschedule) {
 		appletb_schedule_tb_update(tb_dev, 0);
-		return;
 	}
 
 	/* if no idle/dim timeout, we're done */
 	if (min_timeout <= 0)
-		return;
 
 	/* manage idle/dim timeout */
 	if (time_left > 0) {
@@ -788,7 +786,6 @@ static void appletb_inp_event(struct input_handle *handle, unsigned int type,
 
 	if (!tb_dev->active) {
 		spin_unlock_irqrestore(&tb_dev->tb_lock, flags);
-		return;
 	}
 
 	/* remember last state of FN key */
@@ -1259,23 +1256,18 @@ error:
 	return rc;
 }
 
-static int appletb_platform_remove(struct platform_device *pdev)
+static void appletb_platform_remove(struct platform_device *pdev)
 {
-	struct appleib_device_data *ddata = pdev->dev.platform_data;
-	struct appleib_device *ib_dev = ddata->ib_dev;
-	struct appletb_device *tb_dev = platform_get_drvdata(pdev);
-	int rc;
+        struct appleib_device_data *ddata = pdev->dev.platform_data;
+        struct appleib_device *ib_dev = ddata->ib_dev;
+        struct appletb_device *tb_dev = platform_get_drvdata(pdev);
+        int rc;
 
-	rc = appleib_unregister_hid_driver(ib_dev, &appletb_hid_driver);
-	if (rc)
-		goto error;
+        rc = appleib_unregister_hid_driver(ib_dev, &appletb_hid_driver);
+        if (rc)
+                return;
 
-	appletb_free_device(tb_dev);
-
-	return 0;
-
-error:
-	return rc;
+        appletb_free_device(tb_dev);
 }
 
 static const struct platform_device_id appletb_platform_ids[] = {
