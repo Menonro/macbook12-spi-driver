@@ -64,6 +64,7 @@
 #else
 #define	hid_to_usb_dev(hid_dev) \
 	to_usb_device((hid_dev)->dev.parent->parent)
+#endif
 
 #define USB_ID_VENDOR_APPLE	0x05ac
 #define USB_ID_PRODUCT_IBRIDGE	0x8600
