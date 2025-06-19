@@ -2,6 +2,9 @@ Input driver for the SPI keyboard / trackpad found on 12" MacBooks (2015 and lat
 
 The keyboard / trackpad driver here is now included in the kernel as of v5.3.
 
+This out-of-tree repository remains useful for additional MacBook devices and
+is now updated to build against Linux kernels up to version 5.15.
+
 NOTE:
 -----
 The touchbar driver was refactored in late 2018; if you're upgrading from the `appletb` driver, please see the [Upgrading](#upgrading) section; if you're running a kernel before 4.16 then please check out the [legacy](../../tree/touchbar-driver-monolithic) branch instead.
